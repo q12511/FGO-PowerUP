@@ -251,12 +251,19 @@ class EnhancementController:
     def _navigate_to_enhancement_menu(self, screen) -> bool:
         """Navigate from main menu to enhancement menu"""
         # Look for enhancement menu button
+        self.logger.debug("Searching for enhancement_menu_button...")
         enhancement_menu_button = self.image_analyzer.find_template(screen, "enhancement_menu_button", 0.7)
         
         if enhancement_menu_button:
+            self.logger.info(f"Enhancement menu button found at: {enhancement_menu_button}")
             return self.touch_controller.tap_at(enhancement_menu_button[0], enhancement_menu_button[1])
         
-        self.logger.warning("Enhancement menu button not found")
+        self.logger.warning("Enhancement menu button not found - checking game state...")
+        
+        # Debug: Check current game state
+        current_state = self.image_analyzer.detect_game_state(screen)
+        self.logger.warning(f"Current game state: {current_state}")
+        
         return False
     
     def _navigate_to_ce_enhancement(self, screen) -> bool:
