@@ -16,8 +16,8 @@ logging.basicConfig(
 )
 
 # Import and run main
-from fgo_auto_enhance.main_app import FGOAutoEnhanceApp
+from fgo_auto_enhance.main_app import MainApp
 
 if __name__ == "__main__":
-    app = FGOAutoEnhanceApp()
+    app = MainApp()
     app.run(target_level=2, max_attempts=1)
