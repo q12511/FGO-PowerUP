@@ -250,15 +250,38 @@ class EnhancementController:
     
     def _navigate_to_enhancement_menu(self, screen) -> bool:
         """Navigate from main menu to enhancement menu"""
-        # Look for enhancement menu button
-        self.logger.debug("Searching for enhancement_menu_button...")
+        # First, check if we need to open the menu
+        self.logger.debug("Checking if menu needs to be opened...")
+        
+        # Look for enhancement menu button (in opened menu)
         enhancement_menu_button = self.image_analyzer.find_template(screen, "enhancement_menu_button", 0.7)
         
         if enhancement_menu_button:
             self.logger.info(f"Enhancement menu button found at: {enhancement_menu_button}")
             return self.touch_controller.tap_at(enhancement_menu_button[0], enhancement_menu_button[1])
         
-        self.logger.warning("Enhancement menu button not found - checking game state...")
+        # Enhancement menu button not found, try to open menu first
+        self.logger.debug("Enhancement menu button not visible, trying to open menu...")
+        
+        # Look for menu button on terminal screen
+        menu_button = self.image_analyzer.find_template(screen, "menu_button", 0.7)
+        
+        if menu_button:
+            self.logger.info(f"Menu button found at: {menu_button}, opening menu...")
+            if self.touch_controller.tap_at(menu_button[0], menu_button[1]):
+                # Wait for menu to open
+                time.sleep(1.0)
+                
+                # Capture new screen after menu opens
+                new_screen = self.adb_manager.capture_screen()
+                if new_screen is not None:
+                    # Look for enhancement button in opened menu
+                    enhancement_menu_button = self.image_analyzer.find_template(new_screen, "enhancement_menu_button", 0.7)
+                    if enhancement_menu_button:
+                        self.logger.info(f"Enhancement menu button found in opened menu at: {enhancement_menu_button}")
+                        return self.touch_controller.tap_at(enhancement_menu_button[0], enhancement_menu_button[1])
+        
+        self.logger.warning("Could not find menu button or enhancement option")
         
         # Debug: Check current game state
         current_state = self.image_analyzer.detect_game_state(screen)
