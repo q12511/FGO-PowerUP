@@ -141,12 +141,12 @@ class ImageAnalyzer:
             if self.find_template(screen, "enhancement_confirm", 0.7):
                 return GameState.ENHANCEMENT_CONFIRM
             
-            # Material selection screen
-            if self.find_template(screen, "material_selection", 0.7):
+            # Material selection screen (stricter threshold to avoid confusion with CE list)
+            if self.find_template(screen, "material_selection", 0.8):
                 return GameState.MATERIAL_SELECTION
             
-            # CE list screen (specific CE selection screen)
-            if self.find_template(screen, "ce_list_screen", 0.7):
+            # CE list screen (stricter threshold to avoid confusion with material selection)
+            if self.find_template(screen, "ce_list_screen", 0.8):
                 return GameState.CE_LIST_SCREEN
             
             # CE enhancement screen (specific CE enhancement interface)
