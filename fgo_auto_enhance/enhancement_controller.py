@@ -250,38 +250,66 @@ class EnhancementController:
     
     def _select_target_ce_with_scroll(self) -> bool:
         """Select target CE with scroll support if not found in current view"""
-        max_scroll_attempts = 5
+        selected_count = self._select_items_with_scroll(
+            finder_func=self.image_analyzer.find_craft_essences,
+            item_type="craft essences",
+            max_items=1,  # Only select one CE
+            max_scroll_attempts=5
+        )
+        
+        return selected_count > 0
+    
+    def _select_items_with_scroll(self, finder_func, item_type: str, max_items: int, max_scroll_attempts: int = 5) -> int:
+        """Generic function to select items with scroll support"""
+        selected_count = 0
         
         for scroll_attempt in range(max_scroll_attempts):
             screen = self.adb_manager.capture_screen()
             if screen is None:
                 continue
             
-            # Look for craft essences on current screen
-            ces = self.image_analyzer.find_craft_essences(screen)
+            # Find items on current screen
+            items = finder_func(screen)
             
-            if ces:
-                self.logger.info(f"Found {len(ces)} craft essences (scroll attempt {scroll_attempt + 1})")
+            if items:
+                self.logger.info(f"Found {len(items)} {item_type} (scroll attempt {scroll_attempt + 1})")
                 
-                # For now, select the first available CE
-                # TODO: Add logic to match specific target CE
-                target_ce = ces[0]
-                self.logger.info(f"Selecting CE at position: ({target_ce[0]}, {target_ce[1]})")
+                # Select items up to max_items
+                items_to_select = min(len(items), max_items - selected_count)
                 
-                if self.touch_controller.tap_at(target_ce[0], target_ce[1]):
-                    return True
+                for i in range(items_to_select):
+                    item = items[i]
+                    self.logger.info(f"Selecting {item_type} at position: ({item[0]}, {item[1]})")
+                    
+                    if self.touch_controller.tap_at(item[0], item[1]):
+                        selected_count += 1
+                        
+                        # Brief wait for selection to register
+                        time.sleep(0.2)
+                        
+                        # For CE selection, return after first successful selection
+                        if item_type == "craft essences":
+                            return selected_count
+                
+                # Check if we've selected enough items
+                if selected_count >= max_items:
+                    break
             
-            # If no CE found or selection failed, try scrolling down
+            # If not enough items found, try scrolling down
             if scroll_attempt < max_scroll_attempts - 1:
-                self.logger.debug(f"No suitable CE found, scrolling down (attempt {scroll_attempt + 1})")
-                self._scroll_ce_list_down()
+                self.logger.debug(f"Need more {item_type}, scrolling down (attempt {scroll_attempt + 1})")
+                self._scroll_list_down()
                 time.sleep(1.0)  # Wait for scroll animation
         
-        self.logger.error("Failed to find selectable craft essence after scrolling")
-        return False
+        if selected_count == 0:
+            self.logger.error(f"Failed to find selectable {item_type} after scrolling")
+        else:
+            self.logger.info(f"Successfully selected {selected_count} {item_type}")
+        
+        return selected_count
     
-    def _scroll_ce_list_down(self):
-        """Scroll down in the craft essence list"""
+    def _scroll_list_down(self):
+        """Scroll down in the current list (generic for CE list and material list)"""
         # Get screen resolution for scroll calculation
         resolution = self.adb_manager.get_screen_resolution()
         if not resolution:
@@ -414,20 +442,17 @@ class EnhancementController:
         elif not self._wait_for_state(GameState.MATERIAL_SELECTION):
             return []
         
-        # Find available materials (concept essence materials only)
-        screen = self.adb_manager.capture_screen()
-        available_materials = self.image_analyzer.find_enhancement_materials(screen)
+        # Find and select available materials with scroll support
+        selected_count = self._select_items_with_scroll(
+            finder_func=self.image_analyzer.find_enhancement_materials,
+            item_type="materials",
+            max_items=20,
+            max_scroll_attempts=5
+        )
         
-        selected_count = 0
-        max_materials = min(20, len(available_materials))  # Maximum 20 materials can be selected
-        
-        # Select materials by tapping (they will be highlighted with green border)
-        for material in available_materials[:max_materials]:
-            self.touch_controller.tap_at(material[0], material[1])
-            selected_count += 1
-            
-            # Brief wait for selection to register
-            time.sleep(0.2)
+        if selected_count == 0:
+            self.logger.error("No materials could be selected")
+            return []
         
         self.logger.info(f"Selected {selected_count} CE materials for enhancement")
         
