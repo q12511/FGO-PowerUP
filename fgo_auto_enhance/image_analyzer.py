@@ -174,16 +174,46 @@ class ImageAnalyzer:
     
     def find_enhancement_materials(self, screen: np.ndarray) -> List[Tuple[int, int]]:
         """Find available craft essence materials for enhancement (max 20 selectable)"""
-        # Find unselected materials (normal display)
-        unselected_materials = self.find_template_all_matches(screen, "ce_material", 0.7)
+        materials = []
+        
+        # Primary material templates (expandable for multiple types)
+        material_templates = [
+            "material_item",
+            # Future: add more material types
+            # "material_item_gold",
+            # "material_item_silver", 
+            # "material_item_bronze"
+        ]
+        
+        # Find unselected materials
+        for template_name in material_templates:
+            unselected = self.find_template_all_matches(screen, template_name, 0.7)
+            materials.extend(unselected)
         
         # Find selected materials (green highlighted) to avoid duplicate selection
-        selected_materials = self.find_template_all_matches(screen, "ce_material_selected", 0.7)
+        selected_materials = self.find_template_all_matches(screen, "material_item_selected", 0.7)
         
-        self.logger.debug(f"Found {len(unselected_materials)} unselected, {len(selected_materials)} selected materials")
+        # Remove duplicates and filter out already selected materials
+        unique_materials = list(set(materials))
         
-        # Return only unselected materials for selection
-        return unselected_materials
+        # Filter out positions that are too close to selected materials (to avoid reselecting)
+        filtered_materials = []
+        for material in unique_materials:
+            too_close = False
+            for selected in selected_materials:
+                distance = ((material[0] - selected[0]) ** 2 + (material[1] - selected[1]) ** 2) ** 0.5
+                if distance < 50:  # If within 50 pixels, consider it the same item
+                    too_close = True
+                    break
+            if not too_close:
+                filtered_materials.append(material)
+        
+        # Sort by position for consistent selection order
+        filtered_materials.sort(key=lambda x: (x[1], x[0]))  # Sort by y then x
+        
+        self.logger.debug(f"Found {len(filtered_materials)} available materials, {len(selected_materials)} already selected")
+        
+        return filtered_materials
     
     def find_craft_essences(self, screen: np.ndarray) -> List[Tuple[int, int]]:
         """Find craft essence slots in craft essence list"""
