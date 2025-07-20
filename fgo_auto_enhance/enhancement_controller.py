@@ -394,15 +394,23 @@ class EnhancementController:
                         return []
                     screen = self.adb_manager.capture_screen()
             
-            # Now try to start enhancement
-            enhance_button = self.image_analyzer.find_template(screen, "enhance_button")
-            if enhance_button:
-                self.touch_controller.tap_at(enhance_button[0], enhance_button[1])
+            # Check if we need to select material slots first
+            material_slot = self.image_analyzer.find_template(screen, "material_slot")
+            if material_slot:
+                self.logger.info("Material slot found, selecting materials...")
+                self.touch_controller.tap_at(material_slot[0], material_slot[1])
                 if not self._wait_for_state(GameState.MATERIAL_SELECTION):
                     return []
             else:
-                self.logger.error("Enhance button not found")
-                return []
+                # Try enhance button if no material slot found
+                enhance_button = self.image_analyzer.find_template(screen, "enhance_button")
+                if enhance_button:
+                    self.touch_controller.tap_at(enhance_button[0], enhance_button[1])
+                    if not self._wait_for_state(GameState.MATERIAL_SELECTION):
+                        return []
+                else:
+                    self.logger.error("Neither material slot nor enhance button found")
+                    return []
         elif not self._wait_for_state(GameState.MATERIAL_SELECTION):
             return []
         
