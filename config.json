@@ -1,0 +1,35 @@
+{
+  "device": {
+    "device_id": null,
+    "screen_resolution": [1080, 2340],
+    "adb_timeout": 30.0,
+    "screencap_format": "png"
+  },
+  "template": {
+    "template_dir": "templates",
+    "default_threshold": 0.8,
+    "match_method": "TM_CCOEFF_NORMED",
+    "save_debug_images": false,
+    "debug_image_dir": "debug_images"
+  },
+  "safety": {
+    "min_wait_time": 0.5,
+    "max_wait_time": 2.0,
+    "tap_offset_range": 10,
+    "operation_variance": 0.3,
+    "anomaly_detection": true,
+    "emergency_stop_key": "f12",
+    "swipe_duration_range": [200, 500],
+    "max_consecutive_operations": 50,
+    "break_interval": 30.0,
+    "break_duration": 5.0
+  },
+  "logging": {
+    "log_level": "INFO",
+    "log_file": "fgo_enhancement.log",
+    "max_log_size": 10485760,
+    "backup_count": 5,
+    "console_output": true,
+    "file_output": true
+  }
+}
