@@ -248,6 +248,57 @@ class EnhancementController:
         
         return self.touch_controller.tap_at(target_ce[0], target_ce[1])
     
+    def _select_target_ce_with_scroll(self) -> bool:
+        """Select target CE with scroll support if not found in current view"""
+        max_scroll_attempts = 5
+        
+        for scroll_attempt in range(max_scroll_attempts):
+            screen = self.adb_manager.capture_screen()
+            if screen is None:
+                continue
+            
+            # Look for craft essences on current screen
+            ces = self.image_analyzer.find_craft_essences(screen)
+            
+            if ces:
+                self.logger.info(f"Found {len(ces)} craft essences (scroll attempt {scroll_attempt + 1})")
+                
+                # For now, select the first available CE
+                # TODO: Add logic to match specific target CE
+                target_ce = ces[0]
+                self.logger.info(f"Selecting CE at position: ({target_ce[0]}, {target_ce[1]})")
+                
+                if self.touch_controller.tap_at(target_ce[0], target_ce[1]):
+                    return True
+            
+            # If no CE found or selection failed, try scrolling down
+            if scroll_attempt < max_scroll_attempts - 1:
+                self.logger.debug(f"No suitable CE found, scrolling down (attempt {scroll_attempt + 1})")
+                self._scroll_ce_list_down()
+                time.sleep(1.0)  # Wait for scroll animation
+        
+        self.logger.error("Failed to find selectable craft essence after scrolling")
+        return False
+    
+    def _scroll_ce_list_down(self):
+        """Scroll down in the craft essence list"""
+        # Get screen resolution for scroll calculation
+        resolution = self.adb_manager.get_screen_resolution()
+        if not resolution:
+            self.logger.warning("Could not get screen resolution for scrolling")
+            return
+        
+        # Calculate scroll area (middle 60% of screen height)
+        screen_width, screen_height = resolution
+        start_x = screen_width // 2
+        start_y = int(screen_height * 0.7)  # Start from 70% down
+        end_y = int(screen_height * 0.3)    # End at 30% down
+        
+        self.logger.debug(f"Scrolling from ({start_x}, {start_y}) to ({start_x}, {end_y})")
+        
+        # Perform swipe gesture
+        self.touch_controller.swipe(start_x, start_y, start_x, end_y, duration=500)
+    
     def _navigate_to_enhancement_menu(self, screen) -> bool:
         """Navigate from main menu to enhancement menu"""
         # First, check if we need to open the menu
@@ -333,19 +384,15 @@ class EnhancementController:
                 # Need to select CE first
                 self.touch_controller.tap_at(target_ce_slot[0], target_ce_slot[1])
                 if self._wait_for_state(GameState.CE_LIST_SCREEN):
-                    # Select target CE directly (no separate select button needed)
-                    screen = self.adb_manager.capture_screen()
-                    ces = self.image_analyzer.find_craft_essences(screen)
-                    if ces:
-                        # Tap first available CE (or implement selection logic)
-                        self.touch_controller.tap_at(ces[0][0], ces[0][1])
-                        # Wait to return to CE enhancement screen automatically
-                        if not self._wait_for_state(GameState.CE_ENHANCEMENT_SCREEN):
-                            return []
-                        screen = self.adb_manager.capture_screen()
-                    else:
-                        self.logger.error("No craft essences found in list")
+                    # Select target CE with scroll support
+                    if not self._select_target_ce_with_scroll():
+                        self.logger.error("Failed to select target craft essence")
                         return []
+                    
+                    # Wait to return to CE enhancement screen automatically
+                    if not self._wait_for_state(GameState.CE_ENHANCEMENT_SCREEN):
+                        return []
+                    screen = self.adb_manager.capture_screen()
             
             # Now try to start enhancement
             enhance_button = self.image_analyzer.find_template(screen, "enhance_button")
