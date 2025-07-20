@@ -255,14 +255,19 @@ class EnhancementController:
     def _select_items_with_scroll(self, finder_func, item_type: str, max_items: int, max_scroll_attempts: int = 5) -> int:
         """Generic function to select items with scroll support"""
         selected_count = 0
+        self.logger.debug(f"=== Starting _select_items_with_scroll for {item_type} ===")
+        self.logger.debug(f"Max items: {max_items}, Max scroll attempts: {max_scroll_attempts}")
         
         for scroll_attempt in range(max_scroll_attempts):
             screen = self.adb_manager.capture_screen()
             if screen is None:
+                self.logger.warning(f"Failed to capture screen on scroll attempt {scroll_attempt + 1}")
                 continue
             
             # Find items on current screen
+            self.logger.debug(f"Calling finder_func: {finder_func.__name__}")
             items = finder_func(screen)
+            self.logger.debug(f"finder_func returned {len(items) if items else 0} items")
             
             if items:
                 self.logger.info(f"Found {len(items)} {item_type} (scroll attempt {scroll_attempt + 1})")
@@ -449,6 +454,9 @@ class EnhancementController:
         
     def _select_items_based_on_context(self) -> int:
         """Select items based on the last action context"""
+        self.logger.debug(f"=== _select_items_based_on_context called ===")
+        self.logger.debug(f"last_action: {self.last_action}")
+        
         if self.last_action == "target_ce_slot_tapped":
             # CE selection
             self.logger.info("Context: CE selection mode")
@@ -463,12 +471,14 @@ class EnhancementController:
         elif self.last_action == "material_slot_tapped":
             # Material selection
             self.logger.info("Context: Material selection mode")
+            self.logger.debug("Calling _select_items_with_scroll for materials")
             selected_count = self._select_items_with_scroll(
                 finder_func=self.image_analyzer.find_enhancement_materials,
                 item_type="materials",
                 max_items=20,
                 max_scroll_attempts=5
             )
+            self.logger.debug(f"Material selection returned: {selected_count}")
             return selected_count
             
         else:
