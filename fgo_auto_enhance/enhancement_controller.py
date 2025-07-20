@@ -329,18 +329,32 @@ class EnhancementController:
         elif not self._wait_for_state(GameState.MATERIAL_SELECTION):
             return []
         
-        # Find available materials
-        materials = self.image_analyzer.find_enhancement_materials(screen)
-        selected_materials = []
+        # Find available materials (concept essence materials only)
+        screen = self.adb_manager.capture_screen()
+        available_materials = self.image_analyzer.find_enhancement_materials(screen)
         
-        # Select materials based on priority
-        for material_pos in materials[:5]:  # Select up to 5 materials
-            if self.touch_controller.tap_at(material_pos[0], material_pos[1]):
-                selected_materials.append("material")  # Would need OCR to identify actual material
-                self.touch_controller.wait_random(0.3, 0.8)
+        selected_count = 0
+        max_materials = min(20, len(available_materials))  # Maximum 20 materials can be selected
         
-        self.logger.info(f"Selected {len(selected_materials)} materials")
-        return selected_materials
+        # Select materials by tapping (they will be highlighted with green border)
+        for material in available_materials[:max_materials]:
+            self.touch_controller.tap_at(material[0], material[1])
+            selected_count += 1
+            
+            # Brief wait for selection to register
+            time.sleep(0.2)
+        
+        self.logger.info(f"Selected {selected_count} CE materials for enhancement")
+        
+        # Execute enhancement after material selection
+        screen = self.adb_manager.capture_screen()
+        execute_button = self.image_analyzer.find_template(screen, "execute_enhancement_button")
+        if execute_button:
+            self.touch_controller.tap_at(execute_button[0], execute_button[1])
+            return [f"ce_material_{i}" for i in range(selected_count)]
+        else:
+            self.logger.warning("Execute enhancement button not found")
+            return []
     
     def _execute_enhancement(self) -> bool:
         """Execute the enhancement process"""

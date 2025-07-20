@@ -173,29 +173,17 @@ class ImageAnalyzer:
             return GameState.ERROR_STATE
     
     def find_enhancement_materials(self, screen: np.ndarray) -> List[Tuple[int, int]]:
-        """Find enhancement material slots in material selection screen"""
-        materials = []
+        """Find available craft essence materials for enhancement (max 20 selectable)"""
+        # Find unselected materials (normal display)
+        unselected_materials = self.find_template_all_matches(screen, "ce_material", 0.7)
         
-        # Look for different types of enhancement materials
-        material_templates = [
-            "material_slot_empty",
-            "material_slot_filled",
-            "exp_card_bronze",
-            "exp_card_silver", 
-            "exp_card_gold",
-            "ce_material"
-        ]
+        # Find selected materials (green highlighted) to avoid duplicate selection
+        selected_materials = self.find_template_all_matches(screen, "ce_material_selected", 0.7)
         
-        for template_name in material_templates:
-            matches = self.find_template_all_matches(screen, template_name, 0.7)
-            materials.extend(matches)
+        self.logger.debug(f"Found {len(unselected_materials)} unselected, {len(selected_materials)} selected materials")
         
-        # Remove duplicates and sort by position
-        unique_materials = list(set(materials))
-        unique_materials.sort(key=lambda x: (x[1], x[0]))  # Sort by y then x
-        
-        self.logger.debug(f"Found {len(unique_materials)} enhancement materials")
-        return unique_materials
+        # Return only unselected materials for selection
+        return unselected_materials
     
     def find_craft_essences(self, screen: np.ndarray) -> List[Tuple[int, int]]:
         """Find craft essence slots in craft essence list"""
