@@ -12,8 +12,9 @@ class GameState(Enum):
     """Game state enumeration"""
     UNKNOWN = "unknown"
     MAIN_MENU = "main_menu"
-    CRAFT_ESSENCE_LIST = "craft_essence_list"
-    ENHANCEMENT_SCREEN = "enhancement_screen"
+    ENHANCEMENT_MENU = "enhancement_menu"
+    CE_ENHANCEMENT_SCREEN = "ce_enhancement_screen"
+    CE_LIST_SCREEN = "ce_list_screen"
     MATERIAL_SELECTION = "material_selection"
     ENHANCEMENT_CONFIRM = "enhancement_confirm"
     ENHANCEMENT_RESULT = "enhancement_result"
@@ -144,13 +145,17 @@ class ImageAnalyzer:
             if self.find_template(screen, "material_selection", 0.7):
                 return GameState.MATERIAL_SELECTION
             
-            # Enhancement screen
-            if self.find_template(screen, "enhancement_screen", 0.7):
-                return GameState.ENHANCEMENT_SCREEN
+            # CE list screen (specific CE selection screen)
+            if self.find_template(screen, "ce_list_screen", 0.7):
+                return GameState.CE_LIST_SCREEN
             
-            # Craft essence list
-            if self.find_template(screen, "craft_essence_list", 0.7):
-                return GameState.CRAFT_ESSENCE_LIST
+            # CE enhancement screen (specific CE enhancement interface)
+            if self.find_template(screen, "ce_enhancement_screen", 0.7):
+                return GameState.CE_ENHANCEMENT_SCREEN
+            
+            # Enhancement menu (general enhancement menu)
+            if self.find_template(screen, "enhancement_menu", 0.7):
+                return GameState.ENHANCEMENT_MENU
             
             # Main menu
             if self.find_template(screen, "main_menu", 0.7):
@@ -198,7 +203,7 @@ class ImageAnalyzer:
         
         # Look for craft essence slots
         ce_templates = [
-            "ce_slot",
+            "ce_item",
             "ce_equipped",
             "ce_unequipped",
             "ce_locked",

@@ -197,9 +197,9 @@ class EnhancementController:
             current_state = self.image_analyzer.detect_game_state(screen)
             self.logger.debug(f"Current state: {current_state}")
             
-            if current_state == GameState.ENHANCEMENT_SCREEN:
+            if current_state == GameState.CE_ENHANCEMENT_SCREEN:
                 return True
-            elif current_state == GameState.CRAFT_ESSENCE_LIST:
+            elif current_state == GameState.CE_LIST_SCREEN:
                 # Find target craft essence and tap it
                 if self._select_target_craft_essence(screen):
                     self._wait_for_state_change()
@@ -207,13 +207,21 @@ class EnhancementController:
                 else:
                     self.logger.error("Failed to find target craft essence")
                     return False
-            elif current_state == GameState.MAIN_MENU:
-                # Navigate to craft essence menu
-                if self._navigate_to_craft_essence_menu(screen):
+            elif current_state == GameState.ENHANCEMENT_MENU:
+                # Navigate to CE enhancement from enhancement menu
+                if self._navigate_to_ce_enhancement(screen):
                     self._wait_for_state_change()
                     continue
                 else:
-                    self.logger.error("Failed to navigate to craft essence menu")
+                    self.logger.error("Failed to navigate to CE enhancement")
+                    return False
+            elif current_state == GameState.MAIN_MENU:
+                # Navigate to enhancement menu
+                if self._navigate_to_enhancement_menu(screen):
+                    self._wait_for_state_change()
+                    continue
+                else:
+                    self.logger.error("Failed to navigate to enhancement menu")
                     return False
             elif current_state == GameState.ERROR_STATE:
                 self.logger.error("Detected error state during navigation")
@@ -240,15 +248,26 @@ class EnhancementController:
         
         return self.touch_controller.tap_at(target_ce[0], target_ce[1])
     
-    def _navigate_to_craft_essence_menu(self, screen) -> bool:
-        """Navigate from main menu to craft essence menu"""
-        # Look for craft essence menu button
-        ce_menu_button = self.image_analyzer.find_template(screen, "ce_menu_button")
+    def _navigate_to_enhancement_menu(self, screen) -> bool:
+        """Navigate from main menu to enhancement menu"""
+        # Look for enhancement menu button
+        enhancement_menu_button = self.image_analyzer.find_template(screen, "enhancement_menu_button")
         
-        if ce_menu_button:
-            return self.touch_controller.tap_at(ce_menu_button[0], ce_menu_button[1])
+        if enhancement_menu_button:
+            return self.touch_controller.tap_at(enhancement_menu_button[0], enhancement_menu_button[1])
         
-        self.logger.warning("Craft essence menu button not found")
+        self.logger.warning("Enhancement menu button not found")
+        return False
+    
+    def _navigate_to_ce_enhancement(self, screen) -> bool:
+        """Navigate from enhancement menu to CE enhancement screen"""
+        # Look for CE enhancement button
+        ce_enhancement_button = self.image_analyzer.find_template(screen, "ce_enhancement_button")
+        
+        if ce_enhancement_button:
+            return self.touch_controller.tap_at(ce_enhancement_button[0], ce_enhancement_button[1])
+        
+        self.logger.warning("CE enhancement button not found")
         return False
     
     def _perform_back_navigation(self, screen):
@@ -274,16 +293,36 @@ class EnhancementController:
         if screen is None:
             return []
         
-        # Wait for material selection screen
-        if not self._wait_for_state(GameState.MATERIAL_SELECTION):
-            # Try to open material selection
+        # Check if we need to open CE selection or can directly enhance
+        current_state = self.image_analyzer.detect_game_state(screen)
+        
+        if current_state == GameState.CE_ENHANCEMENT_SCREEN:
+            # Check if target CE slot needs to be selected
+            target_ce_slot = self.image_analyzer.find_template(screen, "target_ce_slot")
+            if target_ce_slot:
+                # Need to select CE first
+                self.touch_controller.tap_at(target_ce_slot[0], target_ce_slot[1])
+                if self._wait_for_state(GameState.CE_LIST_SCREEN):
+                    # Select target CE
+                    screen = self.adb_manager.capture_screen()
+                    if not self._select_target_craft_essence(screen):
+                        return []
+                    # Wait to return to CE enhancement screen
+                    if not self._wait_for_state(GameState.CE_ENHANCEMENT_SCREEN):
+                        return []
+                    screen = self.adb_manager.capture_screen()
+            
+            # Now try to start enhancement
             enhance_button = self.image_analyzer.find_template(screen, "enhance_button")
             if enhance_button:
                 self.touch_controller.tap_at(enhance_button[0], enhance_button[1])
                 if not self._wait_for_state(GameState.MATERIAL_SELECTION):
                     return []
             else:
+                self.logger.error("Enhance button not found")
                 return []
+        elif not self._wait_for_state(GameState.MATERIAL_SELECTION):
+            return []
         
         # Find available materials
         materials = self.image_analyzer.find_enhancement_materials(screen)
