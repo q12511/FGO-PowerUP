@@ -297,7 +297,7 @@ class EnhancementController:
         self.logger.debug(f"Scrolling from ({start_x}, {start_y}) to ({start_x}, {end_y})")
         
         # Perform swipe gesture
-        self.touch_controller.swipe(start_x, start_y, start_x, end_y, duration=500)
+        self.touch_controller.swipe((start_x, start_y), (start_x, end_y), duration=500)
     
     def _navigate_to_enhancement_menu(self, screen) -> bool:
         """Navigate from main menu to enhancement menu"""
