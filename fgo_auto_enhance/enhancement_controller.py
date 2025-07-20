@@ -303,14 +303,19 @@ class EnhancementController:
                 # Need to select CE first
                 self.touch_controller.tap_at(target_ce_slot[0], target_ce_slot[1])
                 if self._wait_for_state(GameState.CE_LIST_SCREEN):
-                    # Select target CE
+                    # Select target CE directly (no separate select button needed)
                     screen = self.adb_manager.capture_screen()
-                    if not self._select_target_craft_essence(screen):
+                    ces = self.image_analyzer.find_craft_essences(screen)
+                    if ces:
+                        # Tap first available CE (or implement selection logic)
+                        self.touch_controller.tap_at(ces[0][0], ces[0][1])
+                        # Wait to return to CE enhancement screen automatically
+                        if not self._wait_for_state(GameState.CE_ENHANCEMENT_SCREEN):
+                            return []
+                        screen = self.adb_manager.capture_screen()
+                    else:
+                        self.logger.error("No craft essences found in list")
                         return []
-                    # Wait to return to CE enhancement screen
-                    if not self._wait_for_state(GameState.CE_ENHANCEMENT_SCREEN):
-                        return []
-                    screen = self.adb_manager.capture_screen()
             
             # Now try to start enhancement
             enhance_button = self.image_analyzer.find_template(screen, "enhance_button")
