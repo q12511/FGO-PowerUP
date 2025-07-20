@@ -221,11 +221,12 @@ class ImageAnalyzer:
         
         # Look for craft essence slots
         ce_templates = [
-            "ce_item",
-            "ce_equipped",
-            "ce_unequipped",
-            "ce_locked",
-            "ce_unlocked"
+            "ce_item"
+            # Temporarily disabled until templates are created:
+            # "ce_equipped",
+            # "ce_unequipped",
+            # "ce_locked",
+            # "ce_unlocked"
         ]
         
         for template_name in ce_templates:
