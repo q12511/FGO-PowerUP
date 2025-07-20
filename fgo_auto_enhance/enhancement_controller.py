@@ -57,6 +57,9 @@ class EnhancementController:
         self.total_exp_gained = 0
         self.materials_used = []
         
+        # Navigation flow tracking
+        self.last_action = None  # Track last action for context-aware processing
+        
         # Process control
         self.is_running = False
         self.should_stop = False
@@ -248,16 +251,6 @@ class EnhancementController:
         
         return self.touch_controller.tap_at(target_ce[0], target_ce[1])
     
-    def _select_target_ce_with_scroll(self) -> bool:
-        """Select target CE with scroll support if not found in current view"""
-        selected_count = self._select_items_with_scroll(
-            finder_func=self.image_analyzer.find_craft_essences,
-            item_type="craft essences",
-            max_items=1,  # Only select one CE
-            max_scroll_attempts=5
-        )
-        
-        return selected_count > 0
     
     def _select_items_with_scroll(self, finder_func, item_type: str, max_items: int, max_scroll_attempts: int = 5) -> int:
         """Generic function to select items with scroll support"""
@@ -410,61 +403,77 @@ class EnhancementController:
             target_ce_slot = self.image_analyzer.find_template(screen, "target_ce_slot")
             if target_ce_slot:
                 # Need to select CE first
+                self.logger.info("Target CE slot found, selecting CE...")
                 self.touch_controller.tap_at(target_ce_slot[0], target_ce_slot[1])
-                if self._wait_for_state(GameState.CE_LIST_SCREEN):
-                    # Select target CE with scroll support
-                    if not self._select_target_ce_with_scroll():
-                        self.logger.error("Failed to select target craft essence")
-                        return []
-                    
-                    # Wait to return to CE enhancement screen automatically
-                    if not self._wait_for_state(GameState.CE_ENHANCEMENT_SCREEN):
-                        return []
-                    screen = self.adb_manager.capture_screen()
+                self.last_action = "target_ce_slot_tapped"
+                
+                # Wait for list screen and select CE
+                time.sleep(2.0)  # Wait for transition
+                if not self._select_items_based_on_context():
+                    self.logger.error("Failed to select target craft essence")
+                    return []
+                
+                # Wait to return to CE enhancement screen
+                time.sleep(2.0)  # Wait for return transition
+                screen = self.adb_manager.capture_screen()
             
             # Check if we need to select material slots first
             material_slot = self.image_analyzer.find_template(screen, "material_slot")
             if material_slot:
                 self.logger.info("Material slot found, selecting materials...")
                 self.touch_controller.tap_at(material_slot[0], material_slot[1])
-                if not self._wait_for_state(GameState.MATERIAL_SELECTION):
+                self.last_action = "material_slot_tapped"
+                
+                # Wait for transition and select materials
+                time.sleep(2.0)  # Wait for transition
+                selected_count = self._select_items_based_on_context()
+                
+                if selected_count == 0:
+                    self.logger.error("No materials could be selected")
                     return []
+                    
+                return [f"material_{i}" for i in range(selected_count)]
             else:
                 # Try enhance button if no material slot found
                 enhance_button = self.image_analyzer.find_template(screen, "enhance_button")
                 if enhance_button:
+                    self.logger.info("Enhance button found, proceeding directly...")
                     self.touch_controller.tap_at(enhance_button[0], enhance_button[1])
-                    if not self._wait_for_state(GameState.MATERIAL_SELECTION):
-                        return []
+                    return ["direct_enhancement"]
                 else:
                     self.logger.error("Neither material slot nor enhance button found")
                     return []
-        elif not self._wait_for_state(GameState.MATERIAL_SELECTION):
-            return []
-        
-        # Find and select available materials with scroll support
-        selected_count = self._select_items_with_scroll(
-            finder_func=self.image_analyzer.find_enhancement_materials,
-            item_type="materials",
-            max_items=20,
-            max_scroll_attempts=5
-        )
-        
-        if selected_count == 0:
-            self.logger.error("No materials could be selected")
-            return []
-        
-        self.logger.info(f"Selected {selected_count} CE materials for enhancement")
-        
-        # Execute enhancement after material selection
-        screen = self.adb_manager.capture_screen()
-        execute_button = self.image_analyzer.find_template(screen, "execute_enhancement_button")
-        if execute_button:
-            self.touch_controller.tap_at(execute_button[0], execute_button[1])
-            return [f"ce_material_{i}" for i in range(selected_count)]
         else:
-            self.logger.warning("Execute enhancement button not found")
+            self.logger.error("Not in CE enhancement screen")
             return []
+        
+    def _select_items_based_on_context(self) -> int:
+        """Select items based on the last action context"""
+        if self.last_action == "target_ce_slot_tapped":
+            # CE selection
+            self.logger.info("Context: CE selection mode")
+            selected_count = self._select_items_with_scroll(
+                finder_func=self.image_analyzer.find_craft_essences,
+                item_type="craft essences",
+                max_items=1,
+                max_scroll_attempts=5
+            )
+            return selected_count
+            
+        elif self.last_action == "material_slot_tapped":
+            # Material selection
+            self.logger.info("Context: Material selection mode")
+            selected_count = self._select_items_with_scroll(
+                finder_func=self.image_analyzer.find_enhancement_materials,
+                item_type="materials",
+                max_items=20,
+                max_scroll_attempts=5
+            )
+            return selected_count
+            
+        else:
+            self.logger.warning(f"Unknown context: {self.last_action}")
+            return 0
     
     def _execute_enhancement(self) -> bool:
         """Execute the enhancement process"""
