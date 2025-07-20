@@ -251,7 +251,7 @@ class EnhancementController:
     def _navigate_to_enhancement_menu(self, screen) -> bool:
         """Navigate from main menu to enhancement menu"""
         # Look for enhancement menu button
-        enhancement_menu_button = self.image_analyzer.find_template(screen, "enhancement_menu_button")
+        enhancement_menu_button = self.image_analyzer.find_template(screen, "enhancement_menu_button", 0.7)
         
         if enhancement_menu_button:
             return self.touch_controller.tap_at(enhancement_menu_button[0], enhancement_menu_button[1])
